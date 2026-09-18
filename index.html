@@ -11,20 +11,18 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; m
 
 .guide-section { background: #e3f2fd; border: 1px solid #90caf9; border-radius: 12px; padding: 1rem; margin-bottom: 2rem; font-size: 13px; line-height: 1.6; }
 .guide-title { font-weight: 500; margin-bottom: 0.5rem; }
-.guide-text { color: #333; }
 
 .card { background: white; border: 1px solid #ddd; border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
 .card-title { font-size: 18px; font-weight: 500; margin: 0 0 1.5rem; }
 
 .form-section { margin-bottom: 2rem; padding-bottom: 2rem; border-bottom: 1px solid #eee; }
-.form-section:last-child { border-bottom: none; padding-bottom: 0; }
+.form-section:last-child { border-bottom: none; }
 
 .form-header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 0.5rem; }
 .step-number { background: #2196F3; color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 500; flex-shrink: 0; }
 .form-label { font-size: 15px; font-weight: 500; }
 
 .form-hint { font-size: 12px; color: #666; margin: 6px 0 10px; line-height: 1.5; }
-.form-hint strong { color: #333; }
 
 select, input[type="number"] { 
   width: 100%; 
@@ -36,11 +34,10 @@ select, input[type="number"] {
   color: #333; 
   font-family: inherit;
 }
-select:focus, input:focus { 
-  outline: none; 
-  border-color: #2196F3; 
-  box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.1);
-}
+
+.input-group { display: grid; grid-template-columns: 1fr 80px; gap: 10px; }
+.input-group input { width: 100%; }
+.currency-label { display: flex; align-items: center; font-size: 14px; font-weight: 500; color: #333; }
 
 .tip-box { background: #f5f5f5; border-left: 3px solid #2196F3; border-radius: 4px; padding: 10px 12px; margin: 12px 0; font-size: 12px; line-height: 1.5; }
 .tip-label { font-weight: 500; color: #333; display: block; margin-bottom: 4px; }
@@ -72,8 +69,8 @@ select:focus, input:focus {
 .summary-title { font-weight: 500; margin-bottom: 0.5rem; }
 .summary-text { color: #333; line-height: 1.6; }
 
+.exchange-info { font-size: 12px; color: #666; margin-top: 8px; }
 .error-msg { color: #d32f2f; font-size: 12px; margin-top: 6px; }
-.hidden { display: none !important; }
 </style>
 </head>
 <body>
@@ -81,9 +78,8 @@ select:focus, input:focus {
   <div class="guide-section">
     <div class="guide-title">🎯 このツールについて</div>
     <div class="guide-text">
-      FXトレードで「何ロット（通貨数）でエントリーすればいいか」を自動計算します。<br><br>
-      <strong>基本原則：</strong>
-      1トレードで負けても構わない額を決めて、そこからロット数を逆算します。
+      FXトレードで「何ロット（通貨数）でエントリーすればいいか」を自動計算します。<br>
+      証拠金は <strong>円（JPY）またはドル（USD）</strong> で入力できます。
     </div>
   </div>
 
@@ -101,10 +97,6 @@ select:focus, input:focus {
         <option value="0.01">EUR/JPY, GBP/JPY, USD/JPY など（小数第2位）</option>
         <option value="0.00001">その他のペア</option>
       </select>
-      <div class="tip-box">
-        <span class="tip-label">💡 わからない場合</span>
-        最初は「EUR/USD」を選んでテストしてみてください
-      </div>
     </div>
 
     <div class="form-section">
@@ -112,12 +104,27 @@ select:focus, input:focus {
         <div class="step-number">2</div>
         <div class="form-label">口座の証拠金</div>
       </div>
-      <div class="form-hint">FX口座の残高（ドル）を入力します</div>
-      <input type="number" id="capital" placeholder="例：10000" value="10000" min="100" step="100">
-      <div class="error-msg" id="capitalError"></div>
+      <div class="form-hint">FX口座の残高を入力します</div>
+      
+      <div class="input-group">
+        <div>
+          <input type="number" id="capital" placeholder="例：10000" value="10000" min="100" step="100">
+          <div class="error-msg" id="capitalError"></div>
+        </div>
+        <div>
+          <select id="currency" onchange="calculate()">
+            <option value="JPY">円 (JPY)</option>
+            <option value="USD">ドル (USD)</option>
+          </select>
+        </div>
+      </div>
+      
+      <div class="exchange-info" id="exchangeInfo"></div>
+      
       <div class="tip-box">
         <span class="tip-label">例）</span>
-        証拠金が$10,000なら「10000」と入力
+        100万円なら「1000000」と入力 + 「円」選択<br>
+        $10,000なら「10000」と入力 + 「ドル」選択
       </div>
     </div>
 
@@ -127,11 +134,11 @@ select:focus, input:focus {
         <div class="form-label">1トレードのリスク（%）</div>
       </div>
       <div class="form-hint">1回のトレードで「証拠金の何%まで負けてもいいか」を決めます</div>
-      <input type="number" id="risk" placeholder="例：2" value="2" min="0.1" max="10" step="0.1">
+      <input type="number" id="risk" placeholder="例：2" value="2" min="0.1" max="10" step="0.1" onchange="calculate()">
       <div class="error-msg" id="riskError"></div>
       <div class="tip-box">
         <span class="tip-label">📊 初心者の目安</span>
-        1～2% がおすすめ。保守的なら1%、積極的なら2～3%
+        1～2% がおすすめ
       </div>
     </div>
 
@@ -140,13 +147,12 @@ select:focus, input:focus {
         <div class="step-number">4</div>
         <div class="form-label">ストップロスまでの距離</div>
       </div>
-      <div class="form-hint">エントリー位置から、S/Lまで何pipsか。チャートを見て決めます</div>
-      <input type="number" id="sl" placeholder="例：50" value="50" min="5" step="1">
+      <div class="form-hint">エントリー位置から、S/Lまで何pipsか</div>
+      <input type="number" id="sl" placeholder="例：50" value="50" min="5" step="1" onchange="calculate()">
       <div class="error-msg" id="slError"></div>
       <div class="tip-box">
         <span class="tip-label">📍 S/Lの決め方</span>
-        直近の安値（ショートなら高値）の下に、少し余裕を持たせて置きます。<br>
-        通常 20～100 pips の範囲が目安
+        直近の安値の下に少し余裕を持たせて置きます。通常 20～100 pips
       </div>
     </div>
 
@@ -156,7 +162,7 @@ select:focus, input:focus {
   <div class="results" id="results">
     <div class="result-item">
       <div class="result-label">このトレードで負けてもいい額</div>
-      <div class="result-value">$<span id="riskAmount">0</span></div>
+      <div class="result-value"><span id="riskAmountCurrency">$</span><span id="riskAmount">0</span></div>
       <div class="result-sub">証拠金 × リスク% = 負け額</div>
     </div>
 
@@ -190,8 +196,11 @@ select:focus, input:focus {
 </div>
 
 <script>
+const EXCHANGE_RATE = 150; // 1 USD = 150 JPY
+
 function calculate() {
   const capital = parseFloat(document.getElementById('capital').value);
+  const currency = document.getElementById('currency').value;
   const risk = parseFloat(document.getElementById('risk').value);
   const sl = parseFloat(document.getElementById('sl').value);
   const pairSelect = document.getElementById('pair');
@@ -200,7 +209,7 @@ function calculate() {
   let isValid = true;
 
   if (isNaN(capital) || capital <= 0) {
-    document.getElementById('capitalError').textContent = '100以上の数を入力してください';
+    document.getElementById('capitalError').textContent = '0より大きい数を入力してください';
     isValid = false;
   } else {
     document.getElementById('capitalError').textContent = '';
@@ -225,13 +234,18 @@ function calculate() {
     return;
   }
 
-  const riskAmount = Math.round(capital * (risk / 100) * 100) / 100;
+  // 円をドルに変換
+  const capitalInUSD = currency === 'JPY' ? capital / EXCHANGE_RATE : capital;
+
+  const riskAmount = Math.round(capitalInUSD * (risk / 100) * 100) / 100;
   const lotSize = riskAmount / (sl * pipValue);
   const standardLots = Math.floor(lotSize);
   const miniLotsDecimal = (lotSize - standardLots);
   const miniLots = Math.round(miniLotsDecimal * 10);
   const positionSize = Math.round(lotSize * 100000);
 
+  // 結果表示（ドルで統一）
+  document.getElementById('riskAmountCurrency').textContent = '$';
   document.getElementById('riskAmount').textContent = riskAmount.toFixed(2);
   document.getElementById('lotSize').textContent = lotSize.toFixed(2);
   document.getElementById('standardLots').textContent = standardLots;
@@ -241,8 +255,7 @@ function calculate() {
   const pairName = pairSelect.options[pairSelect.selectedIndex].text.split('など')[0];
   const summaryText = `
     ${pairName}で <strong>${lotSize.toFixed(2)}ロット</strong>（${positionSize.toLocaleString()}通貨）でロング/ショートエントリー。<br>
-    S/L を <strong>${sl}pips</strong> 下に設定すると、もしS/Lで決済されても <strong>$${riskAmount.toFixed(2)}</strong> の損失で済みます。<br>
-    これはあなたの証拠金の <strong>${risk.toFixed(1)}%</strong> です。
+    S/L を <strong>${sl}pips</strong> 下に設定すると、もしS/Lで決済されても <strong>$${riskAmount.toFixed(2)}</strong> の損失で済みます。
   `;
   document.getElementById('summaryText').innerHTML = summaryText;
 
@@ -256,6 +269,30 @@ function updatePipValue() {
   document.getElementById('results').classList.remove('show');
 }
 
+// 証拠金入力時の為替情報表示
+document.getElementById('capital').addEventListener('input', function() {
+  const capital = parseFloat(this.value);
+  const currency = document.getElementById('currency').value;
+  
+  if (!isNaN(capital) && capital > 0) {
+    if (currency === 'JPY') {
+      const usd = (capital / EXCHANGE_RATE).toFixed(2);
+      document.getElementById('exchangeInfo').textContent = `≈ $${usd} (1 USD = ${EXCHANGE_RATE} JPY で計算)`;
+    } else {
+      const jpy = (capital * EXCHANGE_RATE).toLocaleString();
+      document.getElementById('exchangeInfo').textContent = `≈ ¥${jpy} (1 USD = ${EXCHANGE_RATE} JPY で計算)`;
+    }
+  } else {
+    document.getElementById('exchangeInfo').textContent = '';
+  }
+});
+
+document.getElementById('currency').addEventListener('change', function() {
+  document.getElementById('exchangeInfo').textContent = '';
+  document.getElementById('capital').dispatchEvent(new Event('input'));
+});
+
+// 初期表示
 calculate();
 </script>
 </body>
