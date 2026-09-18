@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FX ロット計算機</title>
+<style>
+* { box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 0; color: #333; background: #f9f9f9; }
+.container { padding: 1.5rem 1rem; max-width: 600px; margin: 0 auto; }
+
+.guide-section { background: #e3f2fd; border: 1px solid #90caf9; border-radius: 12px; padding: 1rem; margin-bottom: 2rem; font-size: 13px; line-height: 1.6; }
+.guide-title { font-weight: 500; margin-bottom: 0.5rem; }
+.guide-text { color: #333; }
+
+.card { background: white; border: 1px solid #ddd; border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.card-title { font-size: 18px; font-weight: 500; margin: 0 0 1.5rem; }
+
+.form-section { margin-bottom: 2rem; padding-bottom: 2rem; border-bottom: 1px solid #eee; }
+.form-section:last-child { border-bottom: none; padding-bottom: 0; }
+
+.form-header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 0.5rem; }
+.step-number { background: #2196F3; color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 500; flex-shrink: 0; }
+.form-label { font-size: 15px; font-weight: 500; }
+
+.form-hint { font-size: 12px; color: #666; margin: 6px 0 10px; line-height: 1.5; }
+.form-hint strong { color: #333; }
+
+select, input[type="number"] { 
+  width: 100%; 
+  padding: 12px 14px; 
+  font-size: 15px; 
+  border: 1px solid #ccc; 
+  border-radius: 8px; 
+  background: white; 
+  color: #333; 
+  font-family: inherit;
+}
+select:focus, input:focus { 
+  outline: none; 
+  border-color: #2196F3; 
+  box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.1);
+}
+
+.tip-box { background: #f5f5f5; border-left: 3px solid #2196F3; border-radius: 4px; padding: 10px 12px; margin: 12px 0; font-size: 12px; line-height: 1.5; }
+.tip-label { font-weight: 500; color: #333; display: block; margin-bottom: 4px; }
+
+.button { 
+  padding: 14px 20px; 
+  background: #2196F3; 
+  color: white; 
+  border: none; 
+  border-radius: 8px; 
+  font-size: 15px; 
+  font-weight: 500; 
+  cursor: pointer; 
+  width: 100%;
+}
+.button:hover { background: #1976D2; }
+.button:active { transform: scale(0.98); }
+
+.results { background: #f5f5f5; border: 1px solid #ddd; border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem; display: none; }
+.results.show { display: block; }
+
+.result-item { margin-bottom: 1.5rem; }
+.result-item:last-child { margin-bottom: 0; }
+.result-label { font-size: 12px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; font-weight: 500; }
+.result-value { font-size: 28px; font-weight: 500; color: #2196F3; }
+.result-sub { font-size: 12px; color: #666; margin-top: 4px; }
+
+.summary-box { background: #e8f5e9; border: 1px solid #81c784; border-radius: 12px; padding: 1rem; margin: 1.5rem 0; font-size: 13px; }
+.summary-title { font-weight: 500; margin-bottom: 0.5rem; }
+.summary-text { color: #333; line-height: 1.6; }
+
+.error-msg { color: #d32f2f; font-size: 12px; margin-top: 6px; }
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="guide-section">
+    <div class="guide-title">🎯 このツールについて</div>
+    <div class="guide-text">
+      FXトレードで「何ロット（通貨数）でエントリーすればいいか」を自動計算します。<br><br>
+      <strong>基本原則：</strong>
+      1トレードで負けても構わない額を決めて、そこからロット数を逆算します。
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">ロット計算機</div>
+
+    <div class="form-section">
+      <div class="form-header">
+        <div class="step-number">1</div>
+        <div class="form-label">通貨ペアを選ぶ</div>
+      </div>
+      <div class="form-hint">トレード予定の通貨ペアを選択してください</div>
+      <select id="pair" onchange="updatePipValue()">
+        <option value="0.0001">EUR/USD, GBP/USD, USD/CHF など（小数第4位）</option>
+        <option value="0.01">EUR/JPY, GBP/JPY, USD/JPY など（小数第2位）</option>
+        <option value="0.00001">その他のペア</option>
+      </select>
+      <div class="tip-box">
+        <span class="tip-label">💡 わからない場合</span>
+        最初は「EUR/USD」を選んでテストしてみてください
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-header">
+        <div class="step-number">2</div>
+        <div class="form-label">口座の証拠金</div>
+      </div>
+      <div class="form-hint">FX口座の残高（ドル）を入力します</div>
+      <input type="number" id="capital" placeholder="例：10000" value="10000" min="100" step="100">
+      <div class="error-msg" id="capitalError"></div>
+      <div class="tip-box">
+        <span class="tip-label">例）</span>
+        証拠金が$10,000なら「10000」と入力
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-header">
+        <div class="step-number">3</div>
+        <div class="form-label">1トレードのリスク（%）</div>
+      </div>
+      <div class="form-hint">1回のトレードで「証拠金の何%まで負けてもいいか」を決めます</div>
+      <input type="number" id="risk" placeholder="例：2" value="2" min="0.1" max="10" step="0.1">
+      <div class="error-msg" id="riskError"></div>
+      <div class="tip-box">
+        <span class="tip-label">📊 初心者の目安</span>
+        1～2% がおすすめ。保守的なら1%、積極的なら2～3%
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-header">
+        <div class="step-number">4</div>
+        <div class="form-label">ストップロスまでの距離</div>
+      </div>
+      <div class="form-hint">エントリー位置から、S/Lまで何pipsか。チャートを見て決めます</div>
+      <input type="number" id="sl" placeholder="例：50" value="50" min="5" step="1">
+      <div class="error-msg" id="slError"></div>
+      <div class="tip-box">
+        <span class="tip-label">📍 S/Lの決め方</span>
+        直近の安値（ショートなら高値）の下に、少し余裕を持たせて置きます。<br>
+        通常 20～100 pips の範囲が目安
+      </div>
+    </div>
+
+    <button class="button" onclick="calculate()">計算する</button>
+  </div>
+
+  <div class="results" id="results">
+    <div class="result-item">
+      <div class="result-label">このトレードで負けてもいい額</div>
+      <div class="result-value">$<span id="riskAmount">0</span></div>
+      <div class="result-sub">証拠金 × リスク% = 負け額</div>
+    </div>
+
+    <div class="result-item">
+      <div class="result-label">エントリーロット数</div>
+      <div class="result-value"><span id="lotSize">0.00</span></div>
+      <div class="result-sub">標準ロット：<span id="standardLots">0</span> 個、ミニロット：<span id="miniLots">0</span> 個</div>
+    </div>
+
+    <div class="result-item">
+      <div class="result-label">ポジションサイズ</div>
+      <div class="result-value"><span id="positionSize">0</span></div>
+      <div class="result-sub">実際にトレードする通貨数</div>
+    </div>
+
+    <div class="summary-box">
+      <div class="summary-title">✅ この計算結果の意味</div>
+      <div class="summary-text">
+        <span id="summaryText"></span>
+      </div>
+    </div>
+
+    <div class="tip-box">
+      <span class="tip-label">⚠️ 次のステップ</span>
+      1. チャートでエントリーポイントを探す<br>
+      2. その位置から S/L までの距離を測る<br>
+      3. このツールで距離を入力 → ロット数が出る<br>
+      4. ブローカーのシステムに入力してエントリー
+    </div>
+  </div>
+</div>
+
+<script>
+function calculate() {
+  const capital = parseFloat(document.getElementById('capital').value);
+  const risk = parseFloat(document.getElementById('risk').value);
+  const sl = parseFloat(document.getElementById('sl').value);
+  const pairSelect = document.getElementById('pair');
+  const pipValue = parseFloat(pairSelect.value);
+
+  let isValid = true;
+
+  if (isNaN(capital) || capital <= 0) {
+    document.getElementById('capitalError').textContent = '100以上の数を入力してください';
+    isValid = false;
+  } else {
+    document.getElementById('capitalError').textContent = '';
+  }
+
+  if (isNaN(risk) || risk <= 0 || risk > 10) {
+    document.getElementById('riskError').textContent = '0.1～10の値を入力してください';
+    isValid = false;
+  } else {
+    document.getElementById('riskError').textContent = '';
+  }
+
+  if (isNaN(sl) || sl <= 0) {
+    document.getElementById('slError').textContent = '5以上の数を入力してください';
+    isValid = false;
+  } else {
+    document.getElementById('slError').textContent = '';
+  }
+
+  if (!isValid) {
+    document.getElementById('results').classList.remove('show');
+    return;
+  }
+
+  const riskAmount = Math.round(capital * (risk / 100) * 100) / 100;
+  const lotSize = riskAmount / (sl * pipValue);
+  const standardLots = Math.floor(lotSize);
+  const miniLotsDecimal = (lotSize - standardLots);
+  const miniLots = Math.round(miniLotsDecimal * 10);
+  const positionSize = Math.round(lotSize * 100000);
+
+  document.getElementById('riskAmount').textContent = riskAmount.toFixed(2);
+  document.getElementById('lotSize').textContent = lotSize.toFixed(2);
+  document.getElementById('standardLots').textContent = standardLots;
+  document.getElementById('miniLots').textContent = miniLots;
+  document.getElementById('positionSize').textContent = positionSize.toLocaleString();
+
+  const pairName = pairSelect.options[pairSelect.selectedIndex].text.split('など')[0];
+  const summaryText = `
+    ${pairName}で <strong>${lotSize.toFixed(2)}ロット</strong>（${positionSize.toLocaleString()}通貨）でロング/ショートエントリー。<br>
+    S/L を <strong>${sl}pips</strong> 下に設定すると、もしS/Lで決済されても <strong>$${riskAmount.toFixed(2)}</strong> の損失で済みます。<br>
+    これはあなたの証拠金の <strong>${risk.toFixed(1)}%</strong> です。
+  `;
+  document.getElementById('summaryText').innerHTML = summaryText;
+
+  document.getElementById('results').classList.add('show');
+  setTimeout(() => {
+    document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 100);
+}
+
+function updatePipValue() {
+  document.getElementById('results').classList.remove('show');
+}
+
+calculate();
+</script>
+</body>
+</html>
